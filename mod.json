@@ -2,7 +2,8 @@
 {
   "geode": "5.11.2",
   "gd": {
-    "win": "2.2081"
+    "win": "2.2081",
+    "ios": "2.2081"
   },
   "id": "cesar.input-buffer",
   "name": "Predictive Input Buffer",
