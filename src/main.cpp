@@ -2,7 +2,6 @@
 #include <Geode/modify/GJBaseGameLayer.hpp>
 #include <Geode/modify/PlayLayer.hpp>
 #include <Geode/modify/EffectGameObject.hpp>
-#include <Geode/utils/Keyboard.hpp>
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -12,8 +11,6 @@ using namespace geode::prelude;
 
 namespace {
     constexpr int kJumpButton = 1;
-    constexpr int kMaxBufferedFrames = 16;
-    constexpr int kDefaultPredictionFrames = 60;
     constexpr float kFallbackDelta = 1.f / 240.f;
 
     struct PendingInput {
@@ -21,7 +18,6 @@ namespace {
         bool releasedBeforeReplay = false;
         bool swallowRelease = false;
         bool releaseNextFrame = false;
-        int framesRemaining = 0;
         int button = kJumpButton;
         bool isPlayer1 = true;
     };
@@ -38,10 +34,6 @@ namespace {
     bool g_predictionDied = false;
     bool g_predictionUnsupported = false;
     float g_lastDelta = kFallbackDelta;
-
-    int getBufferFrames() {
-        return std::clamp(Mod::get()->getSettingValue<int>("buffer-frames"), 0, kMaxBufferedFrames);
-    }
 
     int getPredictionFrames() {
         return std::clamp(Mod::get()->getSettingValue<int>("prediction-frames"), 1, 180);
@@ -165,18 +157,6 @@ namespace {
         }
     }
 
-    void logBufferSetting() {
-        log::info(
-            "[PredictiveInputBuffer] Buffer window: {} frames; hidden trajectory horizon: {} frames",
-            getBufferFrames(), getPredictionFrames()
-        );
-    }
-
-    void nextBufferSetting() {
-        int next = (getBufferFrames() + 1) % (kMaxBufferedFrames + 1);
-        Mod::get()->setSettingValue<int>("buffer-frames", next);
-        logBufferSetting();
-    }
 }
 
 class $modify(PredictiveInputBufferPlayLayer, PlayLayer) {
@@ -257,10 +237,9 @@ class $modify(PredictiveInputBufferGameLayer, GJBaseGameLayer) {
             pending->releaseNextFrame = false;
         }
 
-        int waitFrames = getBufferFrames();
         auto layer = PlayLayer::get();
         auto player = getPlayer(this, isPlayer1);
-        if (waitFrames == 0 || !pending || !layer
+        if (!pending || !layer
             || static_cast<GJBaseGameLayer*>(layer) != this
             || !isSupportedPlayer(player, layer, isPlayer1)) {
             GJBaseGameLayer::handleButton(down, button, isPlayer1);
@@ -277,7 +256,6 @@ class $modify(PredictiveInputBufferGameLayer, GJBaseGameLayer) {
 
         pending->waiting = true;
         pending->releasedBeforeReplay = false;
-        pending->framesRemaining = waitFrames;
         pending->button = button;
         pending->isPlayer1 = isPlayer1;
     }
@@ -298,7 +276,7 @@ class $modify(PredictiveInputBufferGameLayer, GJBaseGameLayer) {
                 auto player = getPlayer(this, input.isPlayer1);
                 auto result = simulateHeldInput(layer, player, input.isPlayer1, input.button, dt);
 
-                if (result == PredictionResult::Safe || result == PredictionResult::Unsupported) {
+                if (result == PredictionResult::Safe) {
                     bool releaseAfterReplay = input.releasedBeforeReplay;
                     input.waiting = false;
                     GJBaseGameLayer::handleButton(true, input.button, input.isPlayer1);
@@ -306,16 +284,8 @@ class $modify(PredictiveInputBufferGameLayer, GJBaseGameLayer) {
                     continue;
                 }
 
-                // A confirmed death prediction keeps the press queued. The
-                // configured delay is a maximum, not permission to eat input:
-                // if no safe result arrives in time, fail open and send it.
-                --input.framesRemaining;
-                if (input.framesRemaining <= 0) {
-                    bool releaseAfterReplay = input.releasedBeforeReplay;
-                    input.waiting = false;
-                    GJBaseGameLayer::handleButton(true, input.button, input.isPlayer1);
-                    input.releaseNextFrame = releaseAfterReplay;
-                }
+                // Only replay after the probe confirms a safe held-input path.
+                // A still-dead or inconclusive result remains queued.
             }
         }
 
@@ -386,17 +356,9 @@ class $modify(PredictiveInputBufferEffectObject, EffectGameObject) {
 };
 
 $on_mod(Loaded) {
-    KeyboardInputEvent().listen([](KeyboardInputData& data) {
-        if (data.key == enumKeyCodes::KEY_F6
-            && data.action == KeyboardInputData::Action::Press) {
-            nextBufferSetting();
-        }
-        return ListenerResult::Propagate;
-    });
-
     log::info(
         "[PredictiveInputBuffer] Experimental hidden trajectory predictor loaded. "
         "Supported static cube/robot/wave sections are simulated; unsupported areas use vanilla input."
     );
-    logBufferSetting();
+    log::info("[PredictiveInputBuffer] Prediction lookahead: {} game updates", getPredictionFrames());
 }

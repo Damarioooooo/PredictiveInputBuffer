@@ -6,21 +6,13 @@
   },
   "id": "cesar.input-buffer",
   "name": "Predictive Input Buffer",
-  "version": "v0.3.1",
+  "version": "v0.3.2",
   "developer": "CesarGD96",
-  "description": "Experimental hidden trajectory prediction: delays cube, robot, and wave inputs predicted to die, then replays them when safe.",
+  "description": "Experimental hidden trajectory prediction: delays cube, robot, and wave inputs predicted to die, and replays only after a safe result.",
   "settings": {
-    "buffer-frames": {
-      "type": "int",
-      "default": 2,
-      "min": 0,
-      "max": 16,
-      "name": "Maximum Delay (frames)",
-      "description": "Maximum game updates to wait for a safe trajectory. 0 disables predictive buffering; if no safe result appears, the input is sent anyway so it is never silently lost."
-    },
     "prediction-frames": {
       "type": "int",
-      "default": 60,
+      "default": 12,
       "min": 1,
       "max": 180,
       "name": "Trajectory Lookahead (frames)",

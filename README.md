@@ -1,19 +1,18 @@
 # Predictive Input Buffer
 
-An experimental Geode mod that checks a held jump input using a hidden player copy. If the simulated input reaches a fatal collision, the real input is held back and tested again on the next game update. A safe click is sent to the game immediately. The feature supports classic cube, robot, and wave modes; wave is simulated with jump held, and a release received while the press is queued is replayed after the press becomes safe.
+An experimental Geode mod that checks a held jump input using a hidden player copy. A tap is tested as if it were held from the current frame. If that trajectory reaches a fatal collision, the real input is held back and tested again on each game update. The input is replayed only when a later probe reports a safe path. The feature supports classic cube, robot, and wave modes; a release received while the press is queued is replayed after the press becomes safe.
 
 ## Settings
 
-- **Maximum Delay (frames)**: Number of real game updates to wait for a safe trajectory. Default: 2. Set to 0 to disable. If the probe is unsupported or no safe result appears before the limit, the input is sent anyway so taps are not silently lost.
-- **Trajectory Lookahead (frames)**: How far ahead the hidden player is advanced while holding the input. Default: 60. Larger values can catch later deaths but may add a short hitch when pressing.
+- **Trajectory Lookahead (frames)**: How far ahead the hidden player is advanced while holding the input to test whether the path dies. Default: 12. Larger values can catch later deaths but increase simulation work.
 
-Keyboard users can cycle the delay with F6. On iPad, change the settings from the Geode mod settings page.
+On iPad, adjust the lookahead from the Geode mod settings page. A tap that was identified as deadly stays queued until a probe is safe; restarting or leaving the level clears any queued input.
 
 ## Prediction limits
 
 The predictor is intentionally conservative. It only attempts a prediction for single-player, non-platformer cube/robot/wave play and ordinary static collision objects. If a nearby candidate is a trigger, grouped or animated object, or an unknown collision type, that probe is marked unsupported. Unsupported input at the initial press is passed through unchanged; an input already queued after a death prediction remains queued until a safe probe or its wait limit.
 
-This is not a complete Geometry Dash physics/world simulator. It may miss hazards beyond the configured lookahead, level interactions, moving geometry, dual mode, and other special mechanics. The hidden clone uses the live PlayLayer's collision routines, guarded to suppress known trigger/death side effects; this has not been runtime-tested on an iPad. Because it is experimental, an inconclusive probe fails open and passes the input through. Test it on a practice run first.
+This is not a complete Geometry Dash physics/world simulator. It may miss hazards beyond the configured lookahead, level interactions, moving geometry, dual mode, and other special mechanics. The hidden clone uses the live PlayLayer's collision routines, guarded to suppress known trigger/death side effects; this has not been runtime-tested on an iPad. If a queued probe remains inconclusive or the level has no predicted-safe frame, the input can stay queued until you restart or leave the level. Test it on a practice run first.
 
 ## Target and build
 
