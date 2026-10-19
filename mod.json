@@ -6,17 +6,25 @@
   },
   "id": "cesar.input-buffer",
   "name": "Predictive Input Buffer",
-  "version": "v0.2.0",
+  "version": "v0.3.0",
   "developer": "CesarGD96",
-  "description": "Buffers early cube/robot jump presses until the player is grounded, up to a selectable frame window.",
+  "description": "Experimental hidden trajectory prediction: delays cube, robot, and wave inputs predicted to die, then replays them when safe.",
   "settings": {
     "buffer-frames": {
       "type": "int",
       "default": 2,
       "min": 0,
       "max": 16,
-      "name": "Early Jump Buffer (frames)",
-      "description": "If pressed before a cube/robot landing, replay the input as soon as grounded, only if landing is within this many game updates. 0 disables buffering."
+      "name": "Maximum Delay (frames)",
+      "description": "Maximum game updates to wait for a safe trajectory. 0 disables predictive buffering; an unsafe input is dropped if no safe frame appears in time."
+    },
+    "prediction-frames": {
+      "type": "int",
+      "default": 60,
+      "min": 1,
+      "max": 180,
+      "name": "Trajectory Lookahead (frames)",
+      "description": "How many game updates the hidden player simulates while holding the control input to test whether the path dies. Larger values may cost more time per click."
     }
   }
 }
