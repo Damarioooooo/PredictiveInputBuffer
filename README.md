@@ -4,7 +4,7 @@ An experimental Geode mod that checks a held jump input using a hidden player co
 
 ## Settings
 
-- **Maximum Delay (frames)**: Number of real game updates to wait for a safe trajectory. Default: 2. Set to 0 to disable. If no safe update appears before the limit, the queued input is dropped.
+- **Maximum Delay (frames)**: Number of real game updates to wait for a safe trajectory. Default: 2. Set to 0 to disable. If the probe is unsupported or no safe result appears before the limit, the input is sent anyway so taps are not silently lost.
 - **Trajectory Lookahead (frames)**: How far ahead the hidden player is advanced while holding the input. Default: 60. Larger values can catch later deaths but may add a short hitch when pressing.
 
 Keyboard users can cycle the delay with F6. On iPad, change the settings from the Geode mod settings page.
@@ -13,7 +13,7 @@ Keyboard users can cycle the delay with F6. On iPad, change the settings from th
 
 The predictor is intentionally conservative. It only attempts a prediction for single-player, non-platformer cube/robot/wave play and ordinary static collision objects. If a nearby candidate is a trigger, grouped or animated object, or an unknown collision type, that probe is marked unsupported. Unsupported input at the initial press is passed through unchanged; an input already queued after a death prediction remains queued until a safe probe or its wait limit.
 
-This is not a complete Geometry Dash physics/world simulator. It may miss hazards beyond the configured lookahead, level interactions, moving geometry, dual mode, and other special mechanics. The hidden clone uses the live PlayLayer's collision routines, guarded to suppress known trigger/death side effects; this has not been runtime-tested on an iPad. Treat the feature as experimental and test it on a practice run first.
+This is not a complete Geometry Dash physics/world simulator. It may miss hazards beyond the configured lookahead, level interactions, moving geometry, dual mode, and other special mechanics. The hidden clone uses the live PlayLayer's collision routines, guarded to suppress known trigger/death side effects; this has not been runtime-tested on an iPad. Because it is experimental, an inconclusive probe fails open and passes the input through. Test it on a practice run first.
 
 ## Target and build
 

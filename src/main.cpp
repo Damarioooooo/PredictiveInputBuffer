@@ -298,7 +298,7 @@ class $modify(PredictiveInputBufferGameLayer, GJBaseGameLayer) {
                 auto player = getPlayer(this, input.isPlayer1);
                 auto result = simulateHeldInput(layer, player, input.isPlayer1, input.button, dt);
 
-                if (result == PredictionResult::Safe) {
+                if (result == PredictionResult::Safe || result == PredictionResult::Unsupported) {
                     bool releaseAfterReplay = input.releasedBeforeReplay;
                     input.waiting = false;
                     GJBaseGameLayer::handleButton(true, input.button, input.isPlayer1);
@@ -306,13 +306,15 @@ class $modify(PredictiveInputBufferGameLayer, GJBaseGameLayer) {
                     continue;
                 }
 
-                // After an initial death prediction, neither another death
-                // nor an unsupported probe confirms safety. Keep waiting; if
-                // no safe frame appears within the limit, discard the input.
+                // A confirmed death prediction keeps the press queued. The
+                // configured delay is a maximum, not permission to eat input:
+                // if no safe result arrives in time, fail open and send it.
                 --input.framesRemaining;
                 if (input.framesRemaining <= 0) {
+                    bool releaseAfterReplay = input.releasedBeforeReplay;
                     input.waiting = false;
-                    input.swallowRelease = !input.releasedBeforeReplay;
+                    GJBaseGameLayer::handleButton(true, input.button, input.isPlayer1);
+                    input.releaseNextFrame = releaseAfterReplay;
                 }
             }
         }
