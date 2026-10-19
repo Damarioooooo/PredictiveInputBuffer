@@ -1,6 +1,5 @@
-
 #include <Geode/Geode.hpp>
-#include <Geode/modify/CCKeyboardDispatcher.hpp>
+#include <Geode/utils/Keyboard.hpp>
 
 using namespace geode::prelude;
 
@@ -43,24 +42,15 @@ namespace {
     }
 }
 
-class $modify(PredictiveInputBufferKeyboard, CCKeyboardDispatcher) {
-    void dispatchKeyboardMSG(
-        enumKeyCodes key,
-        bool isKeyDown,
-        bool isKeyRepeat,
-        double timestamp
-    ) {
-        if (key == enumKeyCodes::KEY_F6 && isKeyDown && !isKeyRepeat) {
+$on_mod(Loaded) {
+    KeyboardInputEvent().listen([](KeyboardInputData& data) {
+        if (data.key == enumKeyCodes::KEY_F6
+            && data.action == KeyboardInputData::Action::Press) {
             nextStage();
         }
+        return ListenerResult::Propagate;
+    });
 
-        CCKeyboardDispatcher::dispatchKeyboardMSG(
-            key, isKeyDown, isKeyRepeat, timestamp
-        );
-    }
-};
-
-$on_mod(Loaded) {
     log::info("[InputBuffer] Prototype loaded. Press F6 to cycle stages.");
     logStage();
 }
