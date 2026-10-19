@@ -1,20 +1,22 @@
 # Predictive Input Buffer
 
-An experimental Geode mod that checks a held jump input using a hidden player copy. A tap is tested as if it were held from the current frame. If that trajectory reaches a fatal collision, the real input is held back and tested again on each game update. The input is replayed only when a later probe reports a safe path. The feature supports classic cube, robot, and wave modes; wave simulation keeps the button held for the full prediction horizon. A release received while the press is queued is replayed after the press becomes safe.
+An iOS-compatible port of the approach in the attached `predictive-input-buffer` reference: simulate the current jump/button state, then test candidate delays one update at a time. If the immediate input dies but a candidate delay survives the required extra trajectory, the mod queues the real input for the earliest safe candidate frame.
+
+For example, with **Maximum Delay** set to 2, only delays of 1 and 2 game updates are tested. If delay 2 is the first safe candidate, the input is replayed after two updates. A required delay of 3 is outside the configured window, so the mod passes the original input through immediately. That means it will not save an input that is too early for the selected window.
 
 ## Settings
 
-- **Enable Predictive Buffer**: Turn prediction on or off without restarting. Turning it off immediately sends any queued input through the game.
-- **Trajectory Lookahead (frames)**: How far ahead the hidden player is advanced while holding the input to test whether the path dies. Default: 12. Larger values can catch later deaths but increase simulation work.
+- **Enable Predictive Buffer**: Turn buffering off or on without restarting. Turning it off flushes any queued button transition immediately.
+- **Maximum Delay (frames)**: Select 1–8 game updates to search; default is 2.
 
-On iPad, use the Enable switch and adjust lookahead from the Geode mod settings page. A tap that was identified as deadly stays queued until a probe is safe, unless you turn the mod off; restarting or leaving the level also clears pending input.
+Presses and releases are queued as button-state transitions. Wave prediction holds the candidate button state through the simulated trajectory; if the physical release arrives while a press is queued, the release is delivered after the buffered press.
 
 ## Prediction limits
 
-The predictor is intentionally conservative. It only attempts a prediction for single-player, non-platformer cube/robot/wave play and ordinary static collision objects. If a nearby candidate is a trigger, grouped or animated object, or an unknown collision type, that probe is marked unsupported. Unsupported input at the initial press is passed through unchanged; an input already queued after a death prediction remains queued until a safe probe or its wait limit.
+This uses a hidden player copy and the live `PlayLayer` collision routines. It suppresses the known trigger/effect side effects during simulation. It currently bypasses buffering for dual, platformer, ship, and unsupported player contexts. The predictor uses a bounded static collision-object set and cannot fully reproduce every trigger-driven/moving-object interaction. In unsupported contexts input is passed through normally. Test in practice mode first.
 
-This is not a complete Geometry Dash physics/world simulator. It may miss hazards beyond the configured lookahead, level interactions, moving geometry, dual mode, and other special mechanics. The hidden clone uses the live PlayLayer's collision routines, guarded to suppress known trigger/death side effects; this has not been runtime-tested on an iPad. If a queued probe remains inconclusive or the level has no predicted-safe frame, the input can stay queued until you restart or leave the level. Test it on a practice run first.
+The reference archive contains Windows-only console/key handling. This version ports its trajectory-and-candidate-delay logic without those Windows APIs and provides Geode settings suitable for iOS.
 
 ## Target and build
 
-The repository targets Geometry Dash 2.2081 and the Geode 5.11.2 SDK, including iOS. A literal Geode loader version 1.5.5 is not the SDK version used by this build configuration. The GitHub Actions workflow builds an iOS `.geode` artifact from the repository's `main` branch.
+The repository targets Geometry Dash 2.2081 and Geode 5.11.2, including iOS. The iOS `.geode` artifact is built by the GitHub Actions workflow on `main`.

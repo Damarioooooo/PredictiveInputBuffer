@@ -6,23 +6,23 @@
   },
   "id": "cesar.input-buffer",
   "name": "Predictive Input Buffer",
-  "version": "v0.3.3",
+  "version": "v0.4.0",
   "developer": "CesarGD96",
-  "description": "Experimental hidden trajectory prediction: delays cube, robot, and wave inputs predicted to die, and replays only after a safe result.",
+  "description": "Trajectory-based 1–8 update input safety buffer inspired by the attached reference mod.",
   "settings": {
     "enabled": {
       "type": "bool",
       "default": true,
       "name": "Enable Predictive Buffer",
-      "description": "Turn predictive input delaying on or off without restarting. Turning it off immediately replays any queued press."
+      "description": "Turn predictive input delaying on or off without restarting. Turning it off immediately flushes queued input."
     },
-    "prediction-frames": {
+    "max-delay-frames": {
       "type": "int",
-      "default": 12,
+      "default": 2,
       "min": 1,
-      "max": 180,
-      "name": "Trajectory Lookahead (frames)",
-      "description": "How many game updates the hidden player simulates while holding the control input to test whether the path dies. Larger values may cost more time per click."
+      "max": 8,
+      "name": "Maximum Delay (frames)",
+      "description": "Search for the earliest safe input frame within this many game updates. If no safe candidate is found in this window, the original input passes through."
     }
   }
 }
