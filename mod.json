@@ -6,10 +6,16 @@
   },
   "id": "cesar.input-buffer",
   "name": "Predictive Input Buffer",
-  "version": "v0.3.2",
+  "version": "v0.3.3",
   "developer": "CesarGD96",
   "description": "Experimental hidden trajectory prediction: delays cube, robot, and wave inputs predicted to die, and replays only after a safe result.",
   "settings": {
+    "enabled": {
+      "type": "bool",
+      "default": true,
+      "name": "Enable Predictive Buffer",
+      "description": "Turn predictive input delaying on or off without restarting. Turning it off immediately replays any queued press."
+    },
     "prediction-frames": {
       "type": "int",
       "default": 12,

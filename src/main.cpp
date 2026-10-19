@@ -39,6 +39,10 @@ namespace {
         return std::clamp(Mod::get()->getSettingValue<int>("prediction-frames"), 1, 180);
     }
 
+    bool isPredictiveBufferEnabled() {
+        return Mod::get()->getSettingValue<bool>("enabled");
+    }
+
     PendingInput* getPendingInput(bool isPlayer1, int button) {
         if (button < 0 || button >= 4) return nullptr;
         auto playerIndex = isPlayer1 ? 0u : 1u;
@@ -134,6 +138,9 @@ namespace {
             if (g_predictionUnsupported) break;
 
             if (frame == 0) {
+                // Keep the button down for the entire simulated horizon. This
+                // is especially important for wave, where holding determines
+                // the player's vertical direction.
                 g_fakePlayer->pushButton(static_cast<PlayerButton>(button));
             }
             if (frame == horizon) break;
@@ -211,6 +218,12 @@ class $modify(PredictiveInputBufferGameLayer, GJBaseGameLayer) {
     void handleButton(bool down, int button, bool isPlayer1) {
         if (g_predictionRunning) return;
 
+        if (!isPredictiveBufferEnabled()) {
+            flushPendingInputs();
+            GJBaseGameLayer::handleButton(down, button, isPlayer1);
+            return;
+        }
+
         auto pending = getPendingInput(isPlayer1, button);
 
         if (!down) {
@@ -263,6 +276,8 @@ class $modify(PredictiveInputBufferGameLayer, GJBaseGameLayer) {
     void update(float dt) {
         g_lastDelta = std::isfinite(dt) && dt > 0.f ? dt : kFallbackDelta;
 
+        if (!isPredictiveBufferEnabled()) flushPendingInputs();
+
         for (auto& playerInputs : g_pendingInputs) {
             for (auto& input : playerInputs) {
                 if (input.releaseNextFrame) {
@@ -290,6 +305,18 @@ class $modify(PredictiveInputBufferGameLayer, GJBaseGameLayer) {
         }
 
         GJBaseGameLayer::update(dt);
+    }
+
+    void flushPendingInputs() {
+        for (auto& playerInputs : g_pendingInputs) {
+            for (auto& input : playerInputs) {
+                if (!input.waiting) continue;
+                bool releaseAfterReplay = input.releasedBeforeReplay;
+                input.waiting = false;
+                GJBaseGameLayer::handleButton(true, input.button, input.isPlayer1);
+                input.releaseNextFrame = releaseAfterReplay;
+            }
+        }
     }
 
     void collisionCheckObjects(PlayerObject* player, gd::vector<GameObject*>* objects, int objectCount, float dt) {

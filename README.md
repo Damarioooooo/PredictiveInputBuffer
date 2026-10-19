@@ -1,12 +1,13 @@
 # Predictive Input Buffer
 
-An experimental Geode mod that checks a held jump input using a hidden player copy. A tap is tested as if it were held from the current frame. If that trajectory reaches a fatal collision, the real input is held back and tested again on each game update. The input is replayed only when a later probe reports a safe path. The feature supports classic cube, robot, and wave modes; a release received while the press is queued is replayed after the press becomes safe.
+An experimental Geode mod that checks a held jump input using a hidden player copy. A tap is tested as if it were held from the current frame. If that trajectory reaches a fatal collision, the real input is held back and tested again on each game update. The input is replayed only when a later probe reports a safe path. The feature supports classic cube, robot, and wave modes; wave simulation keeps the button held for the full prediction horizon. A release received while the press is queued is replayed after the press becomes safe.
 
 ## Settings
 
+- **Enable Predictive Buffer**: Turn prediction on or off without restarting. Turning it off immediately sends any queued input through the game.
 - **Trajectory Lookahead (frames)**: How far ahead the hidden player is advanced while holding the input to test whether the path dies. Default: 12. Larger values can catch later deaths but increase simulation work.
 
-On iPad, adjust the lookahead from the Geode mod settings page. A tap that was identified as deadly stays queued until a probe is safe; restarting or leaving the level clears any queued input.
+On iPad, use the Enable switch and adjust lookahead from the Geode mod settings page. A tap that was identified as deadly stays queued until a probe is safe, unless you turn the mod off; restarting or leaving the level also clears pending input.
 
 ## Prediction limits
 
