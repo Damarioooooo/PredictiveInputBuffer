@@ -6,7 +6,7 @@
   },
   "id": "cesar.input-buffer",
   "name": "Predictive Input Buffer",
-  "version": "v0.4.0",
+  "version": "v0.4.1",
   "developer": "CesarGD96",
   "description": "Trajectory-based 1–8 update input safety buffer inspired by the attached reference mod.",
   "settings": {

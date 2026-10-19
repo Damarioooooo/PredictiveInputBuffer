@@ -135,7 +135,15 @@ namespace {
         g_ghostDied = false;
         g_simulating = true;
 
-        if (delay > 0) setGhostButton(g_ghost, !down);
+        if (delay > 0) {
+            setGhostButton(g_ghost, !down);
+        }
+        else {
+            // The zero-delay baseline must include the requested input. Without
+            // this, it only simulates the current trajectory and treats most
+            // dangerous inputs as safe, so the candidate search never runs.
+            setGhostButton(g_ghost, down);
+        }
 
         const int total = delay + horizon;
         int airTicks = 0;
