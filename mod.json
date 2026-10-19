@@ -6,17 +6,17 @@
   },
   "id": "cesar.input-buffer",
   "name": "Predictive Input Buffer",
-  "version": "v0.1.0",
+  "version": "v0.2.0",
   "developer": "CesarGD96",
-  "description": "Delays gameplay inputs by the selected stage. Stage is configurable in mod settings; F6 cycles stages with a keyboard.",
+  "description": "Buffers early cube/robot jump presses until the player is grounded, up to a selectable frame window.",
   "settings": {
-    "buffer-stage": {
+    "buffer-frames": {
       "type": "int",
-      "default": 0,
+      "default": 2,
       "min": 0,
-      "max": 4,
-      "name": "Input Buffer Stage",
-      "description": "0: 2 ticks; 1: 4; 2: 8; 3: 16 (8 for wave); 4: Off. F6 cycles stages."
+      "max": 16,
+      "name": "Early Jump Buffer (frames)",
+      "description": "If pressed before a cube/robot landing, replay the input as soon as grounded, only if landing is within this many game updates. 0 disables buffering."
     }
   }
 }

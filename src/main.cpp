@@ -2,102 +2,156 @@
 #include <Geode/modify/GJBaseGameLayer.hpp>
 #include <Geode/utils/Keyboard.hpp>
 #include <algorithm>
-#include <deque>
+#include <array>
 
 using namespace geode::prelude;
 
 namespace {
-    struct Stage {
-        int allTicks;
-        int waveTicks;
-        bool enabled;
+    constexpr int kMaxBufferedFrames = 16;
+    constexpr int kTrackedButtons = 4; // Game button IDs 0-3; ID 0 is unused.
+
+    struct PendingInput {
+        bool waiting = false;
+        bool releasedBeforeReplay = false;
+        bool swallowRelease = false;
+        bool releaseNextFrame = false;
+        int framesRemaining = 0;
+        int button = 0;
+        bool isPlayer1 = true;
     };
 
-    constexpr Stage stages[] = {
-        {2, 2, true},
-        {4, 4, true},
-        {8, 8, true},
-        {16, 8, true},
-        {0, 0, false}
-    };
+    std::array<std::array<PendingInput, kTrackedButtons>, 2> g_pendingInputs{};
 
-    struct BufferedInput {
-        bool down;
-        int button;
-        bool isPlayer1;
-        double dueAt;
-    };
-
-    std::deque<BufferedInput> g_inputs;
-    double g_levelTime = 0.0;
-
-    int getCurrentStage() {
-        return std::clamp(Mod::get()->getSettingValue<int>("buffer-stage"), 0, 4);
+    int getBufferFrames() {
+        return std::clamp(Mod::get()->getSettingValue<int>("buffer-frames"), 0, kMaxBufferedFrames);
     }
 
-    void logStage() {
-        int index = getCurrentStage();
-        auto const& stage = stages[index];
+    PendingInput* getPendingInput(bool isPlayer1, int button) {
+        if (button < 0 || button >= kTrackedButtons) return nullptr;
+        auto playerIndex = isPlayer1 ? 0u : 1u;
+        return &g_pendingInputs[playerIndex][static_cast<size_t>(button)];
+    }
 
-        if (!stage.enabled) {
-            log::info("[InputBuffer] Stage 5: OFF (raw input)");
-            return;
+    PlayerObject* getPlayer(GJBaseGameLayer* layer, bool isPlayer1) {
+        return isPlayer1 ? layer->m_player1 : layer->m_player2;
+    }
+
+    // Cube and robot jumps require ground contact. The other modes accept
+    // clicks in the air, so their inputs must pass through immediately.
+    bool isGroundJumpMode(PlayerObject* player) {
+        return player
+            && !player->m_isDead
+            && !player->m_isShip
+            && !player->m_isBird
+            && !player->m_isBall
+            && !player->m_isDart
+            && !player->m_isSpider
+            && !player->m_isSwing;
+    }
+
+    void logBufferSetting() {
+        int frames = getBufferFrames();
+        if (frames == 0) {
+            log::info("[InputBuffer] Early-jump buffer OFF");
+        } else {
+            log::info("[InputBuffer] Buffering early ground-jump presses for up to {} frames", frames);
         }
-
-        log::info(
-            "[InputBuffer] Stage {}: {} ticks all | {} ticks wave",
-            index + 1,
-            stage.allTicks,
-            stage.waveTicks
-        );
     }
 
-    void nextStage() {
-        int next = (getCurrentStage() + 1) % 5;
-        Mod::get()->setSettingValue<int>("buffer-stage", next);
-        logStage();
+    void nextBufferSetting() {
+        int next = (getBufferFrames() + 1) % (kMaxBufferedFrames + 1);
+        Mod::get()->setSettingValue<int>("buffer-frames", next);
+        logBufferSetting();
+    }
+
+    void resetPendingInputs() {
+        for (auto& playerInputs : g_pendingInputs) {
+            for (auto& input : playerInputs) {
+                input = PendingInput{};
+            }
+        }
     }
 }
 
 class $modify(PredictiveInputBufferGameLayer, GJBaseGameLayer) {
     bool init() {
         if (!GJBaseGameLayer::init()) return false;
-        g_inputs.clear();
-        g_levelTime = 0.0;
+        resetPendingInputs();
         return true;
     }
 
     void handleButton(bool down, int button, bool isPlayer1) {
-        int stageIndex = getCurrentStage();
-        auto const& stage = stages[stageIndex];
-        if (!stage.enabled) {
+        auto pending = getPendingInput(isPlayer1, button);
+
+        if (!down) {
+            if (pending && pending->waiting) {
+                // Preserve a quick tap: replay down on landing, then release next frame.
+                pending->releasedBeforeReplay = true;
+                return;
+            }
+            if (pending && pending->swallowRelease) {
+                pending->swallowRelease = false;
+                return;
+            }
+            if (pending) pending->releaseNextFrame = false;
             GJBaseGameLayer::handleButton(down, button, isPlayer1);
             return;
         }
 
-        auto player = isPlayer1 ? m_player1 : m_player2;
-        bool isWave = player && player->m_isDart;
-        int ticks = isWave ? stage.waveTicks : stage.allTicks;
-        if (ticks <= 0) {
+        if (pending && pending->waiting) return;
+        if (pending && pending->swallowRelease) pending->swallowRelease = false;
+        if (pending && pending->releaseNextFrame) {
+            GJBaseGameLayer::handleButton(false, button, isPlayer1);
+            pending->releaseNextFrame = false;
+        }
+
+        auto player = getPlayer(this, isPlayer1);
+        int frames = getBufferFrames();
+        if (!pending || frames == 0 || !isGroundJumpMode(player) || player->m_isOnGround) {
             GJBaseGameLayer::handleButton(down, button, isPlayer1);
             return;
         }
 
-        g_inputs.push_back({
-            down,
-            button,
-            isPlayer1,
-            g_levelTime + static_cast<double>(ticks) / 240.0
-        });
+        pending->waiting = true;
+        pending->releasedBeforeReplay = false;
+        pending->framesRemaining = frames;
+        pending->button = button;
+        pending->isPlayer1 = isPlayer1;
     }
 
     void update(float dt) {
-        g_levelTime += dt;
-        while (!g_inputs.empty() && g_inputs.front().dueAt <= g_levelTime) {
-            auto input = g_inputs.front();
-            g_inputs.pop_front();
-            GJBaseGameLayer::handleButton(input.down, input.button, input.isPlayer1);
+        for (auto& playerInputs : g_pendingInputs) {
+            for (auto& input : playerInputs) {
+                if (input.releaseNextFrame) {
+                    GJBaseGameLayer::handleButton(false, input.button, input.isPlayer1);
+                    input.releaseNextFrame = false;
+                }
+
+                if (!input.waiting) continue;
+
+                auto player = getPlayer(this, input.isPlayer1);
+                if (!isGroundJumpMode(player)) {
+                    input.waiting = false;
+                    input.swallowRelease = !input.releasedBeforeReplay;
+                    continue;
+                }
+
+                if (player->m_isOnGround) {
+                    bool releaseAfterReplay = input.releasedBeforeReplay;
+                    input.waiting = false;
+                    GJBaseGameLayer::handleButton(true, input.button, input.isPlayer1);
+                    input.releaseNextFrame = releaseAfterReplay;
+                    continue;
+                }
+
+                --input.framesRemaining;
+                if (input.framesRemaining <= 0) {
+                    input.waiting = false;
+                    input.swallowRelease = !input.releasedBeforeReplay;
+                }
+            }
         }
+
         GJBaseGameLayer::update(dt);
     }
 };
@@ -106,11 +160,11 @@ $on_mod(Loaded) {
     KeyboardInputEvent().listen([](KeyboardInputData& data) {
         if (data.key == enumKeyCodes::KEY_F6
             && data.action == KeyboardInputData::Action::Press) {
-            nextStage();
+            nextBufferSetting();
         }
         return ListenerResult::Propagate;
     });
 
-    log::info("[InputBuffer] Loaded. Set the stage in mod settings or press F6 with a keyboard.");
-    logStage();
+    log::info("[InputBuffer] Loaded. Choose the early-jump buffer window in mod settings; F6 adjusts it with a keyboard.");
+    logBufferSetting();
 }
