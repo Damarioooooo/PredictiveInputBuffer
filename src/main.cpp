@@ -344,23 +344,6 @@ class $modify(PredictiveInputBufferGameLayer, GJBaseGameLayer) {
         GJBaseGameLayer::handleButton(down, button, isPlayer1);
     }
 
-    void update(float dt) {
-        if (std::isfinite(dt) && dt > 0.f) g_frameDelta = dt;
-
-        if (!isEnabled()) {
-            flushAll(this);
-        }
-        else {
-            for (auto& input : g_pending) {
-                if (!input.active) continue;
-                if (input.ticksRemaining > 0) --input.ticksRemaining;
-                if (input.ticksRemaining <= 0) flushOne(this, input);
-            }
-        }
-
-        GJBaseGameLayer::update(dt);
-    }
-
     void collisionCheckObjects(PlayerObject* player, gd::vector<GameObject*>* objects, int objectCount, float dt) {
         if (!g_simulating || player != g_ghost) {
             GJBaseGameLayer::collisionCheckObjects(player, objects, objectCount, dt);
@@ -432,6 +415,18 @@ class $modify(PredictiveInputBufferPlayerObject, PlayerObject) {
             if (layer && this == layer->m_player1 && std::isfinite(dt) && dt > 0.f) {
                 float warp = layer->m_gameState.m_timeWarp;
                 g_frameDelta = warp > 0.f ? dt / warp : dt;
+            }
+            if (layer && this == layer->m_player1) {
+                if (!isEnabled()) {
+                    flushAll(layer);
+                }
+                else {
+                    for (auto& input : g_pending) {
+                        if (!input.active) continue;
+                        if (input.ticksRemaining > 0) --input.ticksRemaining;
+                        if (input.ticksRemaining <= 0) flushOne(layer, input);
+                    }
+                }
             }
         }
         PlayerObject::update(dt);
